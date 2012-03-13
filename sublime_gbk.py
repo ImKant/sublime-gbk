@@ -1,7 +1,7 @@
 #coding: utf8
 
 import sublime, sublime_plugin
-import os, re
+import os, re, hashlib
 import urllib
 
 TEMP_PATH = os.path.join(os.getcwd(), 'tmp')
@@ -17,9 +17,18 @@ def gbk2utf8(view):
 		
 		file_name = view.file_name().encode('utf-8')
 
-		tmp_file_name = urllib.quote_plus(os.path.basename(file_name))  + SEPERATOR + urllib.quote_plus(file_name)
-		tmp_file = os.path.join(TEMP_PATH, tmp_file_name)
-
+		# tmp_file_name = urllib.quote_plus(os.path.basename(file_name))  + SEPERATOR + urllib.quote_plus(file_name)
+		# tmp_file = os.path.join(TEMP_PATH, tmp_file_name)
+		dirname = os.path.dirname(file_name)
+		if not dirname.endswith(os.path.sep):
+			dirname = dirname + os.path.sep
+		basename = os.path.basename(file_name)
+		#md5 = hashlib.md5(basename).hexdigest()
+		name, extension = os.path.splitext(basename)
+		tmp_file_name = dirname + name + ".utf8"+ extension
+		sublime.status_message(tmp_file_name)
+		tmp_file = os.path.join(tmp_file_name)
+		
 		f = file(tmp_file, 'w')
 		f.write(text.encode('utf8'))
 		f.close()
@@ -44,15 +53,15 @@ def saveWithEncoding(view, file_name = None, encoding = 'gbk'):
 	text = view.substr(reg_all).encode(encoding)
 	gbk = file(file_name, 'w')
 	gbk.write(text)
-	gbk.close()	
+	gbk.close()
 
 class EventListener(sublime_plugin.EventListener):
 	def on_load(self, view):
 		gbk2utf8(view)
+
 	def on_post_save(self, view):
-		parts = view.file_name().split(SEPERATOR)
-		if(view.file_name().startswith(TEMP_PATH) and len(parts) > 1):
-			file_name = urllib.unquote_plus(parts[1].encode('utf-8')).decode('utf-8')
+		if(view.file_name().find(".utf8")>-1):
+			file_name = view.file_name().replace(".utf8","")
 			saveWithEncoding(view, file_name)
 
 class SaveWithGbkCommand(sublime_plugin.TextCommand):
@@ -64,8 +73,8 @@ class SaveWithGbkCommand(sublime_plugin.TextCommand):
 		if(not file_name):
 			return
 
-		parts = file_name.split(SEPERATOR)
-		if(not file_name.startswith(TEMP_PATH) and len(parts) <= 1):
+		# parts = file_name.split("SEPERATOR")
+		if(not file_name.find(".utf8.")>-1):
 			saveWithEncoding(self.view)
 			sublime.active_window().run_command('close')
 			sublime.active_window().open_file(self.view.file_name())
@@ -81,10 +90,10 @@ class SaveWithUtf8Command(sublime_plugin.TextCommand):
 		if(not file_name):
 			return
 
-		parts = file_name.split(SEPERATOR)
+		#parts = file_name.split(SEPERATOR)
 
-		if(file_name.startswith(TEMP_PATH) and len(parts) > 1):
-			file_name = urllib.unquote_plus(parts[1].encode('utf-8')).decode('utf-8')
+		if(file_name.find(".utf8.")>-1):
+			file_name = file_name.replace(".utf8","")
 			saveWithEncoding(self.view, file_name, 'utf-8')
 			sublime.active_window().run_command('close')
 			sublime.active_window().open_file(file_name)
